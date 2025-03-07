@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  name          String
+  email         String         @unique
+  phone_number  String?
+  policies      Policy[]
+  medicalHistory MedicalHistory[]
+  claims        Claim[]
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+}
+
+model Policy {
+  id              Int      @id @default(autoincrement())
+  policy_number   String   @unique
+  coverage_details Json
+  exclusions      Json
+  start_date      DateTime
+  end_date        DateTime
+  user_id         Int
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  claims          Claim[]
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+}
+
+model MedicalHistory {
+  id             Int      @id @default(autoincrement())
+  condition      String
+  diagnosis_date DateTime
+  treatment      String?
+  user_id        Int
+  user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+}
+
+model Claim {
+  id             Int        @id @default(autoincrement())
+  treatment      String
+  treatment_date DateTime
+  cause          String?
+  status         String     @default("Pending")
+  user_id        Int
+  policy_id      Int
+  user           User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  policy         Policy     @relation(fields: [policy_id], references: [id], onDelete: Cascade)
+  documents      Document[]
+  created_at     DateTime   @default(now())
+  updated_at     DateTime   @updatedAt
+}
+
+model Document {
+  id             Int      @id @default(autoincrement())
+  document_type  String
+  file_path      String
+  claim_id       Int
+  claim          Claim    @relation(fields: [claim_id], references: [id], onDelete: Cascade)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+}

@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { FaRobot, FaClipboardCheck, FaVideo, FaShieldAlt } from 'react-icons/fa'
 import Button from '../components/common/Button'
 import { useAuth } from '../context/AuthContext'
+import PolicyUploadForm from '../components/PolicyUploadForm'
 
 function Home() {
   const { user } = useAuth()

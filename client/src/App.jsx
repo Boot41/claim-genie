@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { AuthProvider } from './context/AuthContext'
+import ChatBot from './pages/ChatBot'
 
 // Layouts
 import MainLayout from './layouts/MainLayout'
@@ -29,6 +30,7 @@ function App() {
           <Route path="claims/:id" element={<ClaimDetails />} />
           <Route path="add-policy" element={<AddPolicy />} />
           <Route path="*" element={<NotFound />} />
+          <Route path="chatting" element={<ChatBot />} />
         </Route>
       </Routes>
       <ToastContainer position="top-right" autoClose={3000} />

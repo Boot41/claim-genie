@@ -12,7 +12,6 @@ router.register(r'claims', views.ClaimViewSet, basename='claim')
 urlpatterns = [
     path('', views.api_overview, name='api-overview'),
     path('', include(router.urls)),
-    
     # Authentication URLs
     path('auth/register/', views.RegisterView.as_view(), name='register'),
     path('auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

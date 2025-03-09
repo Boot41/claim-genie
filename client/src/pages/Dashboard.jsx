@@ -29,6 +29,26 @@ function Dashboard() {
   });
   const [isSaving, setIsSaving] = useState(false);
 
+  // Helper function: converts snake_case keys to human-friendly labels
+  const humanizeKey = (key) => {
+    return key
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // renderValue converts arrays or objects into a nice string display.
+  const renderValue = (value) => {
+    if (Array.isArray(value)) {
+      return value.join(", ");
+    } else if (typeof value === "object" && value !== null) {
+      return Object.entries(value)
+        .map(([k, v]) => `${humanizeKey(k)}: ${v}`)
+        .join(" | ");
+    }
+    return value;
+  };
+
   const togglePolicy = (index) => {
     setOpenPolicies((prev) => {
       const newOpen = [...prev];
@@ -38,12 +58,9 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    // Fetch user's data from the API
     const fetchUserData = async () => {
       try {
         setIsLoading(true);
-
-        // Get the token from localStorage
         const token = localStorage.getItem("token");
         if (!token) {
           console.error("No authentication token found");
@@ -51,55 +68,41 @@ function Dashboard() {
           return;
         }
 
-        // Fetch claims from the API
-        const claimsResponse = await fetch(
-          "http://localhost:8000/api/claims/",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        // Fetch claims
+        const claimsResponse = await fetch("http://localhost:8000/api/claims/", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        // Fetch policies
+        const policiesResponse = await fetch("http://localhost:8000/api/policies/", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        // Fetch medical history
+        const medicalHistoryResponse = await fetch("http://localhost:8000/api/medical-history/", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
-        // Fetch policies from the API
-        const policiesResponse = await fetch(
-          "http://localhost:8000/api/policies/",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        // Fetch medical history from the API
-        const medicalHistoryResponse = await fetch(
-          "http://localhost:8000/api/medical-history/",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        // Initialize data arrays
         let claimsData = [];
         let policiesData = [];
         let medicalHistoryData = [];
 
-        // Process claims response
         if (claimsResponse.ok) {
           claimsData = await claimsResponse.json();
         } else {
           console.error(`API error fetching claims: ${claimsResponse.status}`);
         }
 
-        // Process policies response
         if (policiesResponse.ok) {
           policiesData = await policiesResponse.json();
         } else {
@@ -108,7 +111,6 @@ function Dashboard() {
           );
         }
 
-        // Process medical history response
         if (medicalHistoryResponse.ok) {
           medicalHistoryData = await medicalHistoryResponse.json();
         } else {
@@ -117,13 +119,11 @@ function Dashboard() {
           );
         }
 
-        const userData = {
+        setUserData({
           policies: policiesData,
           medicalHistory: medicalHistoryData,
           claims: claimsData,
-        };
-
-        setUserData(userData);
+        });
       } catch (error) {
         console.error("Error fetching user data:", error);
       } finally {
@@ -159,13 +159,11 @@ function Dashboard() {
 
       const addedRecord = await response.json();
 
-      // Update the medical history in the state
       setUserData((prev) => ({
         ...prev,
         medicalHistory: [...prev.medicalHistory, addedRecord],
       }));
 
-      // Reset form and close modal
       setNewMedicalHistory({
         condition: "",
         diagnosis_date: "",
@@ -240,7 +238,7 @@ function Dashboard() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {/* Policy Information - Old Version (Removed) */}
+          {/* Display Policies */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-6">
               <div className="flex items-center mb-6">
@@ -265,8 +263,9 @@ function Dashboard() {
                           Policy #{policy.policy_number}
                         </h3>
                         <p className="text-sm opacity-90">
-                          {Object.keys(policy.coverage_details)[0]} •{" "}
-                          {new Date(policy.end_date).toLocaleDateString()}
+                          {policy.end_date
+                            ? new Date(policy.end_date).toLocaleDateString()
+                            : ""}
                         </p>
                       </div>
                       <ChevronDownIcon
@@ -279,85 +278,66 @@ function Dashboard() {
                     {openPolicies[index] && (
                       <div className="p-4 bg-white border-t">
                         <div className="space-y-4">
-                          {/* Coverage Details */}
-                          <div className="bg-blue-50 p-4 rounded-lg">
-                            <h4 className="font-semibold text-blue-800 mb-2 text-lg">
+                          {/* Coverage Details - Green */}
+                          <div className="bg-green-50 p-4 rounded-lg">
+                            <h4 className="font-semibold text-green-800 mb-2 text-lg">
                               <FaFileMedical className="inline mr-2" />
                               Coverage Details
                             </h4>
-                            <ul className="space-y-2 pl-4">
-                              {Object.entries(policy.coverage_details).map(
-                                ([policyType, coverageItems]) => (
-                                  <div key={policyType} className="mb-3">
-                                    <h5 className="font-medium text-blue-700">
-                                      {policyType}
-                                    </h5>
-                                    <ul className="list-disc pl-4">
-                                      {Object.entries(coverageItems).map(
-                                        ([key, value]) => (
-                                          <li
-                                            key={key}
-                                            className="text-gray-700"
-                                          >
-                                            <span className="font-medium">
-                                              {key}:
-                                            </span>{" "}
-                                            {value}
-                                          </li>
-                                        )
-                                      )}
-                                    </ul>
-                                  </div>
-                                )
-                              )}
-                            </ul>
+                            {policy.coverage_details ? (
+                              <ul className="list-disc pl-4 text-gray-700">
+                                {Object.entries(policy.coverage_details).map(
+                                  ([key, value]) => (
+                                    <li key={key}>
+                                      <strong>{humanizeKey(key)}:</strong> {renderValue(value)}
+                                    </li>
+                                  )
+                                )}
+                              </ul>
+                            ) : (
+                              <p>No coverage details available</p>
+                            )}
                           </div>
 
-                          {/* Exclusions */}
+                          {/* Exclusions - Red */}
                           <div className="bg-red-50 p-4 rounded-lg">
                             <h4 className="font-semibold text-red-800 mb-2 text-lg">
                               <FaExclamationTriangle className="inline mr-2" />
                               Exclusions
                             </h4>
-                            <ul className="list-disc pl-4 space-y-2">
-                              {Object.entries(policy.exclusions).map(
-                                ([exclusionType, items]) => (
-                                  <li
-                                    key={exclusionType}
-                                    className="text-gray-700"
-                                  >
-                                    <span className="font-medium">
-                                      {exclusionType}:
-                                    </span>{" "}
-                                    {Array.isArray(items)
-                                      ? items.join(", ")
-                                      : items}
-                                  </li>
-                                )
-                              )}
-                            </ul>
+                            {policy.exclusions && Object.keys(policy.exclusions).length ? (
+                              <ul className="list-disc pl-4 text-gray-700">
+                                {Object.entries(policy.exclusions).map(
+                                  ([key, value]) => (
+                                    <li key={key}>
+                                      <strong>{humanizeKey(key)}:</strong> {renderValue(value)}
+                                    </li>
+                                  )
+                                )}
+                              </ul>
+                            ) : (
+                              <p>None</p>
+                            )}
                           </div>
 
-                          {/* Policy Dates */}
-                          <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
-                            <div>
-                              <p className="text-sm font-medium text-gray-600">
-                                Start Date
-                              </p>
-                              <p className="font-semibold text-gray-800">
-                                {new Date(
-                                  policy.start_date
-                                ).toLocaleDateString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-600">
-                                End Date
-                              </p>
-                              <p className="font-semibold text-gray-800">
-                                {new Date(policy.end_date).toLocaleDateString()}
-                              </p>
-                            </div>
+                          {/* Additional Information - Blue */}
+                          <div className="bg-blue-50 p-4 rounded-lg">
+                            <h4 className="font-semibold text-blue-800 mb-2 text-lg">
+                              Additional Information
+                            </h4>
+                            {policy.additional_information && Object.keys(policy.additional_information).length ? (
+                              <ul className="list-disc pl-4 text-gray-700">
+                                {Object.entries(policy.additional_information).map(
+                                  ([key, value]) => (
+                                    <li key={key}>
+                                      <strong>{humanizeKey(key)}:</strong> {renderValue(value)}
+                                    </li>
+                                  )
+                                )}
+                              </ul>
+                            ) : (
+                              <p>None</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -368,7 +348,7 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Medical History */}
+          {/* Medical History Section */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -389,22 +369,13 @@ function Dashboard() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Condition
                       </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Diagnosis Date
                       </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                      >
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Treatment
                       </th>
                     </tr>
@@ -420,9 +391,7 @@ function Dashboard() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">
                             {record.diagnosis_date
-                              ? new Date(
-                                  record.diagnosis_date
-                                ).toLocaleDateString()
+                              ? new Date(record.diagnosis_date).toLocaleDateString()
                               : "N/A"}
                           </div>
                         </td>
@@ -439,7 +408,7 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Claims */}
+          {/* Claims Section */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-6">
               <div className="flex items-center mb-4">
@@ -465,34 +434,19 @@ function Dashboard() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Treatment
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Date
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Cause
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Status
                         </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        >
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
@@ -507,9 +461,7 @@ function Dashboard() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-500">
-                              {new Date(
-                                claim.treatment_date
-                              ).toLocaleDateString()}
+                              {new Date(claim.treatment_date).toLocaleDateString()}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -543,103 +495,102 @@ function Dashboard() {
           </div>
         </div>
       )}
-      
+
       {showMedicalHistoryModal && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-semibold">Add Medical History</h3>
-            <button
-              onClick={() => setShowMedicalHistoryModal(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <FaTimes />
-            </button>
-          </div>
-
-          <form onSubmit={handleAddMedicalHistory}>
-            <div className="mb-4">
-              <label
-                htmlFor="condition"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Condition
-              </label>
-              <input
-                type="text"
-                id="condition"
-                name="condition"
-                value={newMedicalHistory.condition}
-                onChange={handleInputChange}
-                required
-                className="input w-full"
-                placeholder="e.g. Hypertension, Diabetes"
-              />
-            </div>
-
-            <div className="mb-4">
-              <label
-                htmlFor="diagnosis_date"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Diagnosis Date
-              </label>
-              <input
-                type="date"
-                id="diagnosis_date"
-                name="diagnosis_date"
-                value={newMedicalHistory.diagnosis_date}
-                onChange={handleInputChange}
-                required
-                className="input w-full"
-              />
-            </div>
-
-            <div className="mb-4">
-              <label
-                htmlFor="treatment"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Treatment
-              </label>
-              <textarea
-                id="treatment"
-                name="treatment"
-                value={newMedicalHistory.treatment}
-                onChange={handleInputChange}
-                className="input w-full"
-                rows="3"
-                placeholder="Describe the treatment received"
-              ></textarea>
-            </div>
-
-            <div className="flex justify-end space-x-3">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold">Add Medical History</h3>
               <button
-                type="button"
                 onClick={() => setShowMedicalHistoryModal(false)}
-                className="btn btn-secondary"
+                className="text-gray-500 hover:text-gray-700"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSaving}
-              >
-                {isSaving ? (
-                  <>
-                    <FaSpinner className="animate-spin mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save"
-                )}
+                <FaTimes />
               </button>
             </div>
-          </form>
+
+            <form onSubmit={handleAddMedicalHistory}>
+              <div className="mb-4">
+                <label
+                  htmlFor="condition"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Condition
+                </label>
+                <input
+                  type="text"
+                  id="condition"
+                  name="condition"
+                  value={newMedicalHistory.condition}
+                  onChange={handleInputChange}
+                  required
+                  className="input w-full"
+                  placeholder="e.g. Hypertension, Diabetes"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label
+                  htmlFor="diagnosis_date"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Diagnosis Date
+                </label>
+                <input
+                  type="date"
+                  id="diagnosis_date"
+                  name="diagnosis_date"
+                  value={newMedicalHistory.diagnosis_date}
+                  onChange={handleInputChange}
+                  required
+                  className="input w-full"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label
+                  htmlFor="treatment"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Treatment
+                </label>
+                <textarea
+                  id="treatment"
+                  name="treatment"
+                  value={newMedicalHistory.treatment}
+                  onChange={handleInputChange}
+                  className="input w-full"
+                  rows="3"
+                  placeholder="Describe the treatment received"
+                ></textarea>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowMedicalHistoryModal(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <>
+                      <FaSpinner className="animate-spin mr-2" /> Saving...
+                    </>
+                  ) : (
+                    "Save"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
-    )}
+      )}
     </div>
   );
 }

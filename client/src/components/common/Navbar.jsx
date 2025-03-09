@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { FaBars, FaTimes, FaUser } from 'react-icons/fa'
-import { useAuth } from '../context/AuthContext'
-import Button from '../components/common/Button'
+import { useAuth } from '../../context/AuthContext'
+import Button from './Button'
 
 function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -23,7 +23,7 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link to="/" className="flex-shrink-0 flex items-center">
+            <Link to="/chatting" className="flex-shrink-0 flex items-center">
               <span className="text-primary-600 font-bold text-2xl">ClaimGenie</span>
             </Link>
           </div>

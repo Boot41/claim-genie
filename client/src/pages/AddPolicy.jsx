@@ -3,26 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { FaUpload, FaSpinner, FaArrowLeft, FaCheckCircle } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
-import { uploadFileToCloudinary } from '../utils/cloudinary';
-
-const GEMINI_API_KEY = "AIzaSyDCuedtf9Z87HdVac-YNB2pNnPH2CDOV2k";
 
 function AddPolicy() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   // State variables
   const [policyFile, setPolicyFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileUrl, setFileUrl] = useState("");
-  const [policyNumber, setPolicyNumber] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
   const [processingStep, setProcessingStep] = useState(0);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [extractedData, setExtractedData] = useState(null);
-  
+
   // Handle file selection
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -34,147 +28,93 @@ function AddPolicy() {
     }
   };
 
-  // Upload file to Cloudinary
+  // Upload file to backend using /api/policies/upload_policy_pdf/
   const handleUpload = async () => {
     if (!policyFile) {
       toast.error('Please select a file to upload');
       return;
     }
-    
     try {
       setIsUploading(true);
-      const url = await uploadFileToCloudinary(policyFile);
-      setFileUrl(url);
-      toast.success('File uploaded successfully');
-      setIsUploading(false);
-      
-      // Move to processing step
-      extractPolicyData(url);
+      const formData = new FormData();
+      formData.append('file', policyFile);
+      const uploadResponse = await fetch("http://localhost:8000/api/upload_policy_pdf/", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      const uploadData = await uploadResponse.json();
+      if (!uploadResponse.ok) {
+        throw new Error(uploadData.error || "Upload failed");
+      }
+      toast.success("Policy PDF uploaded successfully");
+      // Optionally record document URL if returned by backend
+      setFileUrl(uploadData.document_url || "");
+      // Initiate extraction process
+      extractPolicyData();
     } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error('Failed to upload file. Please try again.');
+      console.error("Error uploading file:", error);
+      toast.error("Failed to upload file. Please try again.");
+    } finally {
       setIsUploading(false);
     }
   };
 
-  // Extract policy data using Gemini
-  const extractPolicyData = async (url) => {
-    setIsProcessing(true);
-    setProcessingStep(1);
-    
+  // Extract policy details using backend endpoint /api/policies/extract_policy_details/
+  const extractPolicyData = async () => {
     try {
-      // Simulating processing steps with progress updates
-      // In a real application, you would parse the PDF and extract text
-      
-      // Step 1: Extract text from PDF (simulated)
+      setIsProcessing(true);
+      setProcessingStep(1);
       setProcessingProgress(20);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Step 2: Generate prompt for Gemini
-      setProcessingProgress(40);
-      setProcessingStep(2);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const prompt = `
-You are a health insurance policy analyzer. I have uploaded a health insurance policy document.
-Please analyze it and extract the following information in JSON format:
-1. Policy number (format as string)
-2. Coverage details (extract as a JSON object with key coverage areas and their limits/details)
-3. Exclusions (extract as a JSON array of excluded conditions or scenarios)
-4. Any other relevant information for a health insurance claim system
-
-The PDF URL is: ${url}
-
-Return only the JSON object without any explanation or additional text. Format should be:
-{
-  "policy_number": "string",
-  "coverage_details": { object with key-value pairs },
-  "exclusions": [ array of strings ],
-  "additional_info": { any other relevant details }
-}
-`;
-      
-      // Step 3: Call Gemini API
-      setProcessingProgress(60);
-      setProcessingStep(3);
-      
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: prompt }],
-              },
-            ],
-          }),
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      const extractedText = data.candidates[0].content.parts[0].text;
-      
-      // Process the response to get valid JSON
-      const jsonStr = extractedText.replace(/```json|```/g, '').trim();
-      const extractedJson = JSON.parse(jsonStr);
-      
-      setProcessingProgress(80);
-      setProcessingStep(4);
-      setExtractedData(extractedJson);
-      
-      // Pre-fill form fields
-      if (extractedJson.policy_number) {
-        setPolicyNumber(extractedJson.policy_number);
-      }
-      
-      // Step 4: Complete processing
-      setProcessingProgress(100);
       await new Promise(resolve => setTimeout(resolve, 500));
       
+      setProcessingStep(2);
+      setProcessingProgress(60);
+      const response = await fetch("http://localhost:8000/api/extract_policy_details/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include"
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Extraction failed");
+      }
+      
+      setExtractedData(data);
+      setProcessingStep(3);
+      setProcessingProgress(100);
+      toast.success("Policy data extracted successfully");
     } catch (error) {
-      console.error('Error processing policy:', error);
-      toast.error('Failed to process policy data. Please try again or enter details manually.');
-      // Continue to form with empty values
+      console.error("Error processing policy:", error);
+      toast.error("Failed to extract policy data. Please try again or enter details manually.");
       setProcessingProgress(100);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Save policy to backend
+  // Save policy to backend (using extracted data and document URL)
   const handleSavePolicy = async (e) => {
     e.preventDefault();
-    
-    if (!policyNumber || !startDate || !endDate) {
-      toast.error('Please fill in all required fields');
+    if (!extractedData) {
+      toast.error('No extracted policy data available');
       return;
     }
-    
     try {
       setIsUploading(true);
       const token = localStorage.getItem('token');
-      
-      // Prepare policy data
+      console.log(extractedData)
+      // Assemble the policy data from extractedData. Additional fields may be added if required.
       const policyData = {
-        policy_number: policyNumber,
-        coverage_details: extractedData ? extractedData.coverage_details : {},
-        exclusions: extractedData ? extractedData.exclusions : [],
-        start_date: new Date(startDate).toISOString(),
-        end_date: new Date(endDate).toISOString(),
+        policy_number: extractedData.policy_number || "POL" + Math.random().toString(36).substring(2, 9), 
+        coverage_details: extractedData.coverage_details || {},
+        exclusions: extractedData.exclusions || [],
+        additional_information: extractedData.additional_info || {},
         document_url: fileUrl
       };
-      
+
       console.log('Sending policy data:', policyData);
-      
-      // Send to API
+
       const response = await fetch('http://localhost:8000/api/policies/', {
         method: 'POST',
         headers: {
@@ -183,36 +123,20 @@ Return only the JSON object without any explanation or additional text. Format s
         },
         body: JSON.stringify(policyData)
       });
-      
+
       if (!response.ok) {
-        // Log the full response for debugging
-        console.error('API Error Response:', response.status, response.statusText);
-        
         let errorMessage = 'Failed to save policy';
         try {
           const responseText = await response.text();
-          console.error('Response body:', responseText);
-          
-          // Try to parse as JSON if possible
-          try {
-            const errorData = JSON.parse(responseText);
-            errorMessage = errorData.detail || JSON.stringify(errorData);
-          } catch (jsonError) {
-            // Not JSON, use text as is
-            errorMessage = `Server error: ${response.status} ${response.statusText}`;
-          }
-        } catch (textError) {
-          console.error('Error reading response text:', textError);
-        }
-        
+          errorMessage = responseText;
+        } catch (e) {}
         throw new Error(errorMessage);
       }
-      
       toast.success('Policy added successfully!');
       navigate('/dashboard');
     } catch (error) {
       console.error('Error saving policy:', error);
-      toast.error('Failed to save policy. Please try again. Check the console for details.');
+      toast.error('Failed to save policy. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -233,7 +157,7 @@ Return only the JSON object without any explanation or additional text. Format s
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">Upload Policy Document</h2>
         <p className="text-gray-600 mb-4">
-          Upload your policy document (PDF) to automatically extract details, or you can enter the information manually.
+          Upload your policy document (PDF) to automatically extract coverage details and exclusions.
         </p>
         
         <div className="mb-6">
@@ -250,14 +174,13 @@ Return only the JSON object without any explanation or additional text. Format s
               htmlFor="policy-file"
               className={`btn ${policyFile ? 'btn-outline' : 'btn-primary'} flex items-center cursor-pointer`}
             >
-              <FaUpload className="mr-2" /> 
+              <FaUpload className="mr-2" />
               {policyFile ? policyFile.name : 'Select Policy PDF'}
             </label>
-            
             {policyFile && !fileUrl && (
               <button
                 onClick={handleUpload}
-                className="btn btn-primary"
+                className="btn btn-primary flex gap-2 items-center justify-center"
                 disabled={isUploading}
               >
                 {isUploading ? (
@@ -275,12 +198,13 @@ Return only the JSON object without any explanation or additional text. Format s
             <div className="mt-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">
-                  {processingStep === 1 && 'Extracting text from document...'}
-                  {processingStep === 2 && 'Preparing for AI analysis...'}
-                  {processingStep === 3 && 'Analyzing policy with AI...'}
-                  {processingStep === 4 && 'Processing AI results...'}
+                  {processingStep === 1 && 'Extracting text...'}
+                  {processingStep === 2 && 'Analyzing with AI...'}
+                  {processingStep === 3 && 'Finalizing extraction...'}
                 </span>
-                <span className="text-sm font-medium text-gray-700">{processingProgress}%</span>
+                <span className="text-sm font-medium text-gray-700">
+                  {processingProgress}%
+                </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div
@@ -292,79 +216,65 @@ Return only the JSON object without any explanation or additional text. Format s
           )}
         </div>
         
-        {(fileUrl || !policyFile) && (
-          <form onSubmit={handleSavePolicy}>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="col-span-2">
-                <label htmlFor="policy-number" className="block text-sm font-medium text-gray-700 mb-1">
-                  Policy Number *
-                </label>
-                <input
-                  type="text"
-                  id="policy-number"
-                  value={policyNumber}
-                  onChange={(e) => setPolicyNumber(e.target.value)}
-                  className="input w-full"
-                  required
-                />
+        {/* Display extracted policy details in a friendly, color-coded format */}
+        {extractedData && (
+          <div className="mt-6 space-y-6">
+            <h3 className="text-lg font-semibold flex items-center">
+              <FaCheckCircle className="mr-2 text-green-500" /> Extracted Policy Details
+            </h3>
+            <div className="grid grid-cols-1 gap-4">
+              {/* Coverage Details - Green */}
+              <div className="p-4 border rounded bg-green-100 text-green-800">
+                <h4 className="font-bold mb-1">Coverage Details</h4>
+                <p>
+                  <strong>Hospitalization:</strong> {extractedData.coverage_details.hospitalization_coverage}
+                </p>
+                <p>
+                  <strong>Cataract Surgery Limit:</strong> {extractedData.coverage_details.cataract_surgery_limit}
+                </p>
+                <p>
+                  <strong>Hernia/Hysterectomy Limit:</strong> {extractedData.coverage_details.hernia_hysterectomy_limit}
+                </p>
+                <p>
+                  <strong>Major Surgery Limit:</strong> {extractedData.coverage_details.major_surgery_limit}
+                </p>
               </div>
               
-              <div>
-                <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date *
-                </label>
-                <input
-                  type="date"
-                  id="start-date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="input w-full"
-                  required
-                />
+              {/* Exclusions - Red */}
+              <div className="p-4 border rounded bg-red-100 text-red-800">
+                <h4 className="font-bold mb-1">Exclusions</h4>
+                {extractedData.exclusions && extractedData.exclusions.length > 0 ? (
+                  <ul className="list-disc ml-5">
+                    {extractedData.exclusions.map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>None</p>
+                )}
               </div>
               
-              <div>
-                <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date *
-                </label>
-                <input
-                  type="date"
-                  id="end-date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="input w-full"
-                  required
-                />
+              {/* Additional Information - Blue */}
+              <div className="p-4 border rounded bg-blue-100 text-blue-800">
+                <h4 className="font-bold mb-1">Additional Information</h4>
+                <p>
+                  <strong>Insurer:</strong> {extractedData.additional_info.insurance_company}
+                </p>
+                <p>
+                  <strong>Policy Type:</strong> {extractedData.additional_info.policy_type}
+                </p>
+                <p>
+                  <strong>IRDA Reg No:</strong> {extractedData.additional_info.irda_reg_no}
+                </p>
+                <p>{extractedData.additional_info.operative_clause_note}</p>
               </div>
             </div>
             
-            {extractedData && (
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-3 flex items-center">
-                  <FaCheckCircle className="text-green-500 mr-2" />
-                  Extracted Policy Details
-                </h3>
-                
-                <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                  <h4 className="font-medium text-gray-700 mb-2">Coverage Details</h4>
-                  <pre className="text-sm text-gray-600 bg-white p-3 rounded border border-gray-200 overflow-auto max-h-40">
-                    {JSON.stringify(extractedData.coverage_details, null, 2)}
-                  </pre>
-                  
-                  <h4 className="font-medium text-gray-700 mt-4 mb-2">Exclusions</h4>
-                  <ul className="text-sm text-gray-600 bg-white p-3 rounded border border-gray-200 max-h-40 overflow-auto">
-                    {extractedData.exclusions.map((exclusion, index) => (
-                      <li key={index} className="mb-1">{exclusion}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-            
-            <div className="mt-6">
+            {/* Save Policy Button */}
+            <div className="mt-4">
               <button
-                type="submit"
-                className="btn btn-primary w-full"
+                onClick={handleSavePolicy}
+                className="btn btn-primary w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded"
                 disabled={isUploading}
               >
                 {isUploading ? (
@@ -376,7 +286,7 @@ Return only the JSON object without any explanation or additional text. Format s
                 )}
               </button>
             </div>
-          </form>
+          </div>
         )}
       </div>
     </div>

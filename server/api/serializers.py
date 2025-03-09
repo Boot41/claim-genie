@@ -162,7 +162,7 @@ class PolicySerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Policy
-        fields = ['id', 'policy_number', 'coverage_details', 'exclusions', 'document_url', 'start_date', 'end_date', 'claims']
+        fields = ['id', 'policy_number', 'coverage_details', 'exclusions', 'additional_information', 'claims']
 
 class MedicalHistorySerializer(serializers.ModelSerializer):
     class Meta:

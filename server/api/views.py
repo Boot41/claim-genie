@@ -20,7 +20,7 @@ class ItemViewSet(viewsets.ModelViewSet):
 # Create a viewset for the Policy model
 class PolicyViewSet(viewsets.ModelViewSet):
     serializer_class = PolicySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         return Policy.objects.filter(user=self.request.user)
@@ -46,7 +46,7 @@ def ocr_api_view(request):
 # Create a viewset for the MedicalHistory model
 class MedicalHistoryViewSet(viewsets.ModelViewSet):
     serializer_class = MedicalHistorySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         return MedicalHistory.objects.filter(user=self.request.user)
@@ -57,7 +57,7 @@ class MedicalHistoryViewSet(viewsets.ModelViewSet):
 # Create a viewset for the Claim model
 class ClaimViewSet(viewsets.ModelViewSet):
     serializer_class = ClaimSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_queryset(self):
         return Claim.objects.filter(user=self.request.user)
@@ -91,14 +91,14 @@ class RegisterView(generics.CreateAPIView):
 # User profile view
 class UserProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     
     def get_object(self):
         return self.request.user
 
 # Specific claim detail view
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def claim_detail(request, pk):
     claim = get_object_or_404(Claim, id=pk, user=request.user)
     serializer = ClaimSerializer(claim)

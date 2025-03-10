@@ -15,21 +15,19 @@ import Dashboard from './pages/Dashboard'
 import NewClaim from './pages/NewClaim'
 import ClaimDetails from './pages/ClaimDetails'
 import AddPolicy from './pages/AddPolicy'
-import NotFound from './pages/NotFound'
 
 function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Home />} />
+        <Route path="*" element={<MainLayout />}>
+          <Route path='*' element={<Home />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="new-claim" element={<NewClaim />} />
           <Route path="claims/:id" element={<ClaimDetails />} />
           <Route path="add-policy" element={<AddPolicy />} />
-          <Route path="*" element={<NotFound />} />
           <Route path="chatting" element={<ChatBot />} />
         </Route>
       </Routes>

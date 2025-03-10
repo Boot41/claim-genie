@@ -4,7 +4,7 @@ region     = "asia-south1"
 
 # Container Deployment Configuration
 service_name    = "claim-genie"
-container_image = "asia-south1-docker.pkg.dev/boot41/a3/claim-genie"
+container_image = "asia-south1-docker.pkg.dev/boot41/a3/claim-genie2"
 container_tag   = "latest"
 
 # Environment Variables (Optional)

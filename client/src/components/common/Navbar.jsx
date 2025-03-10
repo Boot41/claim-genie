@@ -23,7 +23,7 @@ function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link to="/chatting" className="flex-shrink-0 flex items-center">
+            <Link to="/" className="flex-shrink-0 flex items-center">
               <span className="text-primary-600 font-bold text-2xl">ClaimGenie</span>
             </Link>
           </div>
@@ -41,6 +41,13 @@ function Navbar() {
                 </Link>
                 <Link to="/new-claim" className="px-3 py-2 rounded-md text-md font-medium text-gray-700 hover:text-primary-600">
                   New Claim
+                </Link>
+                <Link
+                  to="/chatting"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary-600"
+                  onClick={toggleMenu}
+                >
+                  Check Claim
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -94,6 +101,13 @@ function Navbar() {
                   onClick={toggleMenu}
                 >
                   New Claim
+                </Link>
+                <Link
+                  to="/chatting"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary-600"
+                  onClick={toggleMenu}
+                >
+                  Check Claim
                 </Link>
                 <button
                   onClick={() => {

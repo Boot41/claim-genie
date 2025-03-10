@@ -1,13 +1,31 @@
+# Django and related packages
 asgiref==3.8.1
 Django==5.1.6
 django-cors-headers==4.7.0
 djangorestframework==3.15.2
+djangorestframework-simplejwt==5.5.0
 sqlparse==0.5.3
 typing_extensions==4.12.2
-djangorestframework_simplejwt==5.5.0
+
+# PDF processing
+pdfplumber==0.10.3
+PyPDF2==3.0.1
+
+# Image processing
 pytesseract==0.3.13
+Pillow==10.2.0
+
+# HTTP requests
+requests==2.31.0
+
+# Server and deployment
 gunicorn==20.1.0
-pytest==8.3.5
 whitenoise==6.5.0
-PyPDF2
-scikit-learn
+
+# Testing
+pytest==8.3.5
+
+# Data processing
+scikit-learn==1.4.0
+numpy==1.26.4
+pandas==2.2.1

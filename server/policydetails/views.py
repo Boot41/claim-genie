@@ -83,11 +83,6 @@ def upload_policy_pdf(request):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def extract_policy_details(request):
-    """
-    New endpoint at /api/policies/extract/ that calls the Gemini API to extract
-    coverage details and exclusions from the uploaded policy data.
-    Uses content stored in the session from the uploaded file.
-    """
     pdf_text = request.session.get("pdf_text", "")
     pdf_tables = request.session.get("pdf_tables", "")
 

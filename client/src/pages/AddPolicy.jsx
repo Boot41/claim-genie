@@ -79,7 +79,6 @@ function AddPolicy() {
       if (!response.ok) {
         throw new Error(data.error || "Extraction failed");
       }
-      
       setExtractedData(data);
       setProcessingStep(3);
       setProcessingProgress(100);

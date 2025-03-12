@@ -1,33 +1,43 @@
-import React, { useState } from 'react'
-import { FaUpload, FaSpinner } from 'react-icons/fa'
-import { toast } from 'react-toastify'
+import React, { useEffect, useState } from 'react';
+import { FaUpload, FaSpinner } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 function FileUpload() {
-  const [file, setFile] = useState(null)
-  const [uploadStatus, setUploadStatus] = useState('')
-  const [isUploading, setIsUploading] = useState(false)
+
+  useEffect(() => {
+    // Clean up the session storage on component unmount
+    return () => {
+      sessionStorage.removeItem('pdf_text');
+      sessionStorage.removeItem('pdf_tables');
+      sessionStorage.removeItem('conversation_history');
+    };
+  }, []);
+
+  const [file, setFile] = useState(null);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleFileChange = (event) => {
-    const selected = event.target.files[0]
+    const selected = event.target.files[0];
     if (selected && selected.type === 'application/pdf') {
-      setFile(selected)
-      setUploadStatus('')
+      setFile(selected);
+      setUploadStatus('');
     } else {
-      toast.error('Please select a valid PDF file.')
-      event.target.value = null
-      setFile(null)
+      toast.error('Please select a valid PDF file.');
+      event.target.value = null;
+      setFile(null);
     }
-  }
+  };
 
   const handleUpload = () => {
     if (!file) {
-      toast.error('No file selected.')
-      return
+      toast.error('No file selected.');
+      return;
     }
-    const formData = new FormData()
-    formData.append('file', file)
+    const formData = new FormData();
+    formData.append('file', file);
 
-    setIsUploading(true)
+    setIsUploading(true);
     fetch('http://localhost:8000/api/upload/', {
       method: 'POST',
       body: formData,
@@ -35,18 +45,21 @@ function FileUpload() {
     })
       .then((res) => res.json())
       .then((data) => {
-        setUploadStatus(data.message)
-        toast.success(data.message)
+        setUploadStatus(data.message);
+        toast.success(data.message);
+        // Save PDF content to localStorage
+        localStorage.setItem('pdf_text', data.pdf_text);
+        localStorage.setItem('pdf_tables', data.pdf_tables);
       })
       .catch((error) => {
-        console.error(error)
-        setUploadStatus('Error uploading file.')
-        toast.error('Error uploading file.')
+        console.error(error);
+        setUploadStatus('Error uploading file.');
+        toast.error('Error uploading file.');
       })
       .finally(() => {
-        setIsUploading(false)
-      })
-  }
+        setIsUploading(false);
+      });
+  };
 
   return (
     <div>
@@ -88,7 +101,7 @@ function FileUpload() {
         </p>
       )}
     </div>
-  )
+  );
 }
 
-export default FileUpload
+export default FileUpload;

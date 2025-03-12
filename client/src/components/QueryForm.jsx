@@ -1,64 +1,75 @@
-import React, { useState } from 'react'
-import { FaSpinner } from 'react-icons/fa'
-import { toast } from 'react-toastify'
+import React, { useState } from 'react';
+import { FaSpinner } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 function QueryForm() {
-  const [question, setQuestion] = useState("")
-  const [conversationHistory, setConversationHistory] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [question, setQuestion] = useState("");
+  const [conversationHistory, setConversationHistory] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = (event) => {
-    event.preventDefault()
+    event.preventDefault();
 
     if (!question.trim()) {
-      toast.error('Please enter a question.')
-      return
+      toast.error('Please enter a question.');
+      return;
     }
 
     // Create a new conversation entry with a placeholder for the answer
     const newEntry = {
       question: question,
       answer: "Fetching answer..."
-    }
+    };
 
     // Append the new question to the conversation history and clear the input
-    setConversationHistory(prev => [...prev, newEntry])
-    setQuestion("")
-    setIsLoading(true)
+    setConversationHistory(prev => [...prev, newEntry]);
+    setQuestion("");
+    setIsLoading(true);
+
+    // Retrieve stored data from localStorage
+    const pdf_text = localStorage.getItem('pdf_text') || "";
+    const pdf_tables = localStorage.getItem('pdf_tables') || "";
+    const storedHistory = JSON.parse(localStorage.getItem('conversation_history') || "[]");
 
     fetch('http://localhost:8000/api/query/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ question })
+      body: JSON.stringify({ question, pdf_text, pdf_tables, conversation_history: storedHistory })
     })
       .then((res) => res.json())
       .then((data) => {
         // Update the last entry in the conversation history with the fetched answer
         setConversationHistory(prev => {
-          const updatedHistory = [...prev]
+          const updatedHistory = [...prev];
           updatedHistory[updatedHistory.length - 1] = {
             ...updatedHistory[updatedHistory.length - 1],
             answer: data.answer
-          }
-          return updatedHistory
-        })
+          };
+          // Also update the stored conversation history in localStorage.
+          const newHistory = [...storedHistory, updatedHistory[updatedHistory.length - 1]];
+          localStorage.setItem('conversation_history', JSON.stringify(newHistory));
+          return updatedHistory;
+        });
       })
       .catch((error) => {
-        console.error(error)
-        toast.error('Error retrieving answer.')
+        console.error(error);
+        toast.error('Error retrieving answer.');
         // Update the last entry with an error message
         setConversationHistory(prev => {
-          const updatedHistory = [...prev]
+          const updatedHistory = [...prev];
           updatedHistory[updatedHistory.length - 1] = {
             ...updatedHistory[updatedHistory.length - 1],
             answer: 'Error retrieving answer.'
-          }
-          return updatedHistory
-        })
+          };
+          // Update localStorage in case of error.
+          const newHistory = [...storedHistory, updatedHistory[updatedHistory.length - 1]];
+          localStorage.setItem('conversation_history', JSON.stringify(newHistory));
+          return updatedHistory;
+        });
       })
-      .finally(() => setIsLoading(false))
-  }
+      .finally(() => setIsLoading(false));
+  };
 
   return (
     <div>
@@ -103,7 +114,7 @@ function QueryForm() {
         </button>
       </form>
     </div>
-  )
+  );
 }
 
-export default QueryForm
+export default QueryForm;

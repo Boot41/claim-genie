@@ -2,33 +2,11 @@ import re
 import pdfplumber
 import requests
 from io import BytesIO
-import json
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
-
-def call_gemini_api(prompt):
-    gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-    params = {"key": "AIzaSyDCuedtf9Z87HdVac-YNB2pNnPH2CDOV2k"}  # Replace with your API key
-    headers = {"Content-Type": "application/json"}
-    data = {"contents": [{"parts": [{"text": prompt}]}]}
-    
-    print("DEBUG: Calling Gemini API with prompt:")
-    print(prompt)
-    
-    response = requests.post(gemini_api_url, params=params, headers=headers, json=data)
-    print("DEBUG: Gemini API response status code:", response.status_code)
-    
-    if response.status_code == 200:
-        print("DEBUG: Gemini API response JSON:")
-        print(response.json())
-        return response.json()
-    else:
-        print("ERROR: Gemini API returned error:")
-        print(response.text)
-        return {"error": response.text}
 
 def extract_pdf_content(file_obj):
     """Extracts both text and tables from the PDF using pdfplumber."""
@@ -55,6 +33,7 @@ def extract_pdf_content(file_obj):
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def upload_pdf(request):
+    """Processes uploaded PDF and returns its text and tables so the client can store them."""
     print("DEBUG: In upload_pdf view.")
     file_obj = request.FILES.get('file', None)
     if not file_obj:
@@ -70,43 +49,70 @@ def upload_pdf(request):
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     cleaned_text = re.sub(r'\s+', ' ', text_content).strip()
-    request.session['pdf_text'] = cleaned_text
-    request.session['pdf_tables'] = "\n\n".join(tables) if tables else ""
-    request.session['conversation_history'] = []  # Reset history for new upload
+    pdf_tables = "\n\n".join(tables) if tables else ""
     
-    print("DEBUG: Saved pdf_text to session (length =", len(cleaned_text),")")
-    print("DEBUG: Saved pdf_tables to session:")
-    print(request.session.get('pdf_tables'))
+    print("DEBUG: Returning pdf_text (length =", len(cleaned_text),") and", len(tables), "tables.")
     
+    # Return the extracted content so that the client can store it (e.g., in localStorage).
     return Response({
         'message': 'PDF processed successfully.',
         'text_length': len(cleaned_text),
-        'tables_found': len(tables)
+        'tables_found': len(tables),
+        'pdf_text': cleaned_text,
+        'pdf_tables': pdf_tables
     }, status=status.HTTP_200_OK)
+
+def call_gemini_api(prompt):
+    """Calls the Gemini API with the provided prompt and returns the response."""
+    gemini_api_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    params = {"key": "AIzaSyDCuedtf9Z87HdVac-YNB2pNnPH2CDOV2k"}  # Replace with your API key
+    headers = {"Content-Type": "application/json"}
+    data = {"contents": [{"parts": [{"text": prompt}]}]}
+    
+    print("DEBUG: Calling Gemini API with prompt:")
+    print(prompt)
+    
+    response = requests.post(gemini_api_url, params=params, headers=headers, json=data)
+    print("DEBUG: Gemini API response status code:", response.status_code)
+    
+    if response.status_code == 200:
+        print("DEBUG: Gemini API response JSON:")
+        print(response.json())
+        return response.json()
+    else:
+        print("ERROR: Gemini API returned error:")
+        print(response.text)
+        return {"error": response.text}
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def query_pdf(request):
+    """Handles a query against the previously uploaded PDF content.
+    The client must include pdf_text, pdf_tables, and conversation_history."""
     print("DEBUG: In query_pdf view.")
     print("DEBUG: Request data:", request.data)
+    
     user_question = request.data.get('question', None)
     if not user_question:
         print("ERROR: No question provided in request data!")
         return Response({'error': 'No question provided.'}, status=status.HTTP_400_BAD_REQUEST)
     
-    pdf_text = request.session.get('pdf_text', "")
-    pdf_tables = request.session.get('pdf_tables', "")
+    # Retrieve PDF content from client payload (previously stored in localStorage).
+    pdf_text = request.data.get('pdf_text', "")
+    pdf_tables = request.data.get('pdf_tables', "")
     if not pdf_text:
-        print("ERROR: No PDF text found in session.")
-        return Response({'error': 'No PDF text found. Please upload a PDF first.'},
+        print("ERROR: No PDF text provided in request data.")
+        return Response({'error': 'No PDF text provided. Please upload a PDF first.'},
                         status=status.HTTP_400_BAD_REQUEST)
+    
+    # Optionally, include conversation history from the client.
+    history = request.data.get('conversation_history', [])
     
     # For brevity, select only excerpts from text (and optionally tables).
     selected_text = pdf_text[:1000]  # For example, first 1000 characters
     selected_tables = pdf_tables[:1000] if pdf_tables else ""
     
-    # Retrieve and trim conversation history to the last 7 interactions.
-    history = request.session.get('conversation_history', [])
+    # Trim conversation history to the last 7 interactions.
     trimmed_history = history[-7:] if len(history) > 7 else history
     
     print("DEBUG: Conversation history (last 7, if any):")
@@ -152,11 +158,5 @@ def query_pdf(request):
             model_response = f"Error parsing Gemini response: {str(e)}"
             print("ERROR: Exception parsing Gemini response:", str(e))
     
-    # Append current turn and keep only the past 7 interactions in history.
-    history.append({"question": user_question, "answer": model_response})
-    request.session['conversation_history'] = history[-7:]
-    
-    print("DEBUG: Updated conversation history in session:")
-    print(request.session.get('conversation_history'))
-    
+    # Return the answer. The client should update its conversation history (e.g., in localStorage).
     return Response({'prompt': prompt, 'answer': model_response}, status=status.HTTP_200_OK)
